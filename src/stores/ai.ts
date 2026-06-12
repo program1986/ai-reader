@@ -57,6 +57,22 @@ export const aiStore = {
     );
     persist();
   },
+  /**
+   * 更新最后一条消息的内容(用于流式输出)
+   */
+  updateLastMessage(conversationId: string, content: string) {
+    setConversations(
+      (c) => c.id === conversationId,
+      produce((c) => {
+        if (c.messages.length === 0) return;
+        const last = c.messages[c.messages.length - 1];
+        last.content = content;
+        last.at = Date.now();
+        c.updatedAt = Date.now();
+      }),
+    );
+    persist();
+  },
   remove(id: string) {
     setConversations((arr) => arr.filter((c) => c.id !== id));
     persist();

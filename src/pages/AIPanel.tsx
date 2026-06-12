@@ -1,10 +1,12 @@
-import { For, Show, createMemo, createSignal } from 'solid-js';
+// AI 面板 - M4 完整实现
+import { For, Show, createMemo, createSignal, onCleanup } from 'solid-js';
 import { useNavigate, useParams, useSearchParams } from '@solidjs/router';
 import { libraryStore } from '@/stores/library';
 import { annotationStore } from '@/stores/annotation';
 import { aiStore } from '@/stores/ai';
 import { settingsStore } from '@/stores/settings';
-import { askAIStream } from '@/services/ai/client';
+import { askAIStream, explainSelection, translateSelection } from '@/services/ai/client';
+import { marked } from 'marked';
 
 export default function AIPanel() {
   const params = useParams();
@@ -12,6 +14,7 @@ export default function AIPanel() {
   const navigate = useNavigate();
   const [streaming, setStreaming] = createSignal(false);
   const [draft, setDraft] = createSignal('');
+  const [abortCtrl, setAbortCtrl] = createSignal<AbortController | null>(null);
 
   const book = createMemo(() => libraryStore.getById(params.id));
   const annotationId = createMemo(() =>
@@ -22,23 +25,35 @@ export default function AIPanel() {
     return id ? annotationStore.getById(id) : undefined;
   });
 
-  // 上下文文本:优先用划线的内容,否则是当前打开的书的描述
   const contextText = createMemo(() => {
     const ann = annotation();
     if (ann) return ann.selectedText ?? ann.noteText ?? '';
-    const b = book();
-    return b ? `${b.title} - ${b.author}` : '';
+    return '';
   });
 
-  // 当前会话(简化版:每个上下文对应一个)
   const conversation = createMemo(() => {
     const ann = annotation();
     if (!ann) return undefined;
-    const convs = aiStore.getByBook(params.id);
-    return convs.find((c) => c.contextAnnotationId === ann.id);
+    return aiStore.getByBook(params.id).find((c) => c.contextAnnotationId === ann.id);
   });
 
-  async function handleSend() {
+  function getOrCreateConv(systemPrompt: string) {
+    const ann = annotation();
+    let conv = conversation();
+    if (!conv) {
+      conv = aiStore.startConversation({
+        bookId: params.id,
+        contextAnnotationId: ann?.id,
+        contextText: contextText(),
+      });
+      if (systemPrompt) {
+        aiStore.appendMessage(conv.id, { role: 'system', content: systemPrompt });
+      }
+    }
+    return conv;
+  }
+
+  async function handleAsk() {
     const text = draft().trim();
     if (!text || streaming()) return;
     if (!settingsStore.settings.ai.enabled) {
@@ -46,63 +61,107 @@ export default function AIPanel() {
       return;
     }
     setDraft('');
-    setStreaming(true);
-
-    // 找到/创建会话
-    let conv = conversation();
-    if (!conv) {
-      conv = aiStore.startConversation({
-        bookId: params.id,
-        contextAnnotationId: annotationId(),
-        contextText: contextText(),
-      });
-    }
-
+    const sys = buildSystemPrompt(contextText());
+    const conv = getOrCreateConv(sys);
     aiStore.appendMessage(conv.id, { role: 'user', content: text });
-
-    // 收集 AI 响应
-    let assistantText = '';
-    aiStore.appendMessage(conv.id, { role: 'assistant', content: '' });
-    try {
-      await askAIStream({
-        systemPrompt: buildSystemPrompt(contextText()),
-        messages: [
-          ...conv.messages.map((m) => ({ role: m.role, content: m.content })),
-          { role: 'user' as const, content: text },
-        ],
-        onDelta: (chunk) => {
-          assistantText += chunk;
-          // 直接更新最后一条
-          const conv2 = aiStore.getById(conv!.id);
-          if (conv2) {
-            const last = conv2.messages[conv2.messages.length - 1];
-            if (last.role === 'assistant') {
-              // Solid 不可变更新
-              aiStore.appendMessage; // noop
-              // 这里直接修改内容 - 因为我们用 appendMessage 没法更新中间内容
-              // 简单做法:维护一个 ref
-            }
-          }
-        },
-        onDone: () => {
-          setStreaming(false);
-        },
-        onError: (err) => {
-          setStreaming(false);
-          alert('AI 调用失败: ' + err.message);
-        },
-      });
-    } catch (err) {
-      setStreaming(false);
-      console.error(err);
-    }
+    await runStream(conv.id, sys, [
+      ...conv.messages
+        .filter((m) => m.role !== 'system')
+        .map((m) => ({ role: m.role, content: m.content })),
+      { role: 'user' as const, content: text },
+    ]);
   }
+
+  async function handleExplain() {
+    if (!contextText()) return;
+    if (!settingsStore.settings.ai.enabled) return alert('请先在设置中启用 AI');
+    const sys = '你是阅读时的解释助手。简短、有用。';
+    const conv = getOrCreateConv(sys);
+    aiStore.appendMessage(conv.id, { role: 'user', content: `请解释:「${contextText()}」` });
+    await runSimpleStream(conv.id, explainSelection, contextText());
+  }
+
+  async function handleTranslate() {
+    if (!contextText()) return;
+    if (!settingsStore.settings.ai.enabled) return alert('请先在设置中启用 AI');
+    const sys = '你是翻译引擎。';
+    const conv = getOrCreateConv(sys);
+    aiStore.appendMessage(conv.id, { role: 'user', content: contextText() });
+    await runSimpleStream(conv.id, translateSelection, contextText());
+  }
+
+  function runSimpleStream(
+    convId: string,
+    fn: (
+      input: string,
+      onDelta: (c: string) => void,
+      onDone: () => void,
+      onError: (e: Error) => void,
+      opts?: { signal?: AbortSignal },
+    ) => Promise<void>,
+    input: string,
+  ): Promise<void> {
+    return runStream(convId, '你是助手。', [
+      { role: 'user' as const, content: input },
+    ]);
+  }
+
+  async function runStream(convId: string, systemPrompt: string, messages: any[]) {
+    setStreaming(true);
+    const ac = new AbortController();
+    setAbortCtrl(ac);
+    aiStore.appendMessage(convId, { role: 'assistant', content: '' });
+    let assistantText = '';
+    await askAIStream({
+      systemPrompt,
+      messages,
+      onDelta: (chunk) => {
+        assistantText += chunk;
+        aiStore.updateLastMessage(convId, assistantText);
+      },
+      onDone: () => {
+        setStreaming(false);
+        setAbortCtrl(null);
+      },
+      onError: (err) => {
+        setStreaming(false);
+        setAbortCtrl(null);
+        alert('AI 调用失败: ' + err.message);
+      },
+      signal: ac.signal,
+    });
+  }
+
+  function handleStop() {
+    abortCtrl()?.abort();
+    setStreaming(false);
+  }
+
+  function handleClear() {
+    const conv = conversation();
+    if (!conv) return;
+    if (!confirm('清空这个对话?')) return;
+    aiStore.remove(conv.id);
+  }
+
+  onCleanup(() => {
+    abortCtrl()?.abort();
+  });
+
+  const visibleMessages = createMemo(() => {
+    const c = conversation();
+    if (!c) return [];
+    return c.messages.filter((m) => m.role !== 'system');
+  });
 
   return (
     <div class="page page-ai">
       <header class="page-header">
         <button class="btn btn-ghost" onClick={() => navigate(`/book/${params.id}`)}>‹ 返回</button>
         <h1>AI 助手</h1>
+        <Show when={conversation()}>
+          <button class="btn btn-ghost" onClick={handleClear}>清空</button>
+        </Show>
       </header>
 
       <Show when={contextText()}>
@@ -110,40 +169,57 @@ export default function AIPanel() {
           <div class="ai-context">
             <p class="text-tertiary text-xs">上下文</p>
             <blockquote>{ctx()}</blockquote>
+            <div class="row" style={{ 'margin-top': 'var(--space-2)' }}>
+              <button class="btn btn-sm" onClick={handleExplain}>解释</button>
+              <button class="btn btn-sm" onClick={handleTranslate}>
+                译为 {settingsStore.settings.translation.targetLanguage}
+              </button>
+            </div>
           </div>
         )}
       </Show>
 
       <Show
-        when={conversation()}
+        when={visibleMessages().length > 0}
         fallback={
-          <div class="empty text-sm">开始对话吧。问 AI 解释 / 翻译 / 总结</div>
+          <div class="empty text-sm">
+            <Show
+              when={!settingsStore.settings.ai.enabled}
+              fallback={<p>开始对话吧。问 AI 解释 / 翻译 / 总结</p>}
+            >
+              <p class="text-danger">AI 助手未启用</p>
+              <p class="text-secondary text-sm">在"设置 → AI 助手"里开启</p>
+            </Show>
+          </div>
         }
       >
-        {(conv) => (
-          <ul class="ai-messages">
-            <For each={conv().messages}>
-              {(m) => (
-                <li
-                  class="ai-message"
-                  classList={{
-                    'ai-message--user': m.role === 'user',
-                    'ai-message--assistant': m.role === 'assistant',
-                  }}
+        <ul class="ai-messages">
+          <For each={visibleMessages()}>
+            {(m) => (
+              <li
+                class="ai-message"
+                classList={{
+                  'ai-message--user': m.role === 'user',
+                  'ai-message--assistant': m.role === 'assistant',
+                }}
+              >
+                <Show
+                  when={m.role === 'assistant'}
+                  fallback={<p>{m.content}</p>}
                 >
-                  <p>{m.content}</p>
-                </li>
-              )}
-            </For>
-          </ul>
-        )}
+                  <div class="markdown" innerHTML={marked.parse(m.content || '...') as string} />
+                </Show>
+              </li>
+            )}
+          </For>
+        </ul>
       </Show>
 
       <form
         class="ai-input-bar"
         onSubmit={(e) => {
           e.preventDefault();
-          handleSend();
+          handleAsk();
         }}
       >
         <input
@@ -154,9 +230,18 @@ export default function AIPanel() {
           onInput={(e) => setDraft(e.currentTarget.value)}
           disabled={streaming()}
         />
-        <button class="btn btn-primary" type="submit" disabled={streaming() || !draft().trim()}>
-          {streaming() ? '...' : '发送'}
-        </button>
+        <Show
+          when={streaming()}
+          fallback={
+            <button class="btn btn-primary" type="submit" disabled={!draft().trim()}>
+              发送
+            </button>
+          }
+        >
+          <button class="btn btn-danger" type="button" onClick={handleStop}>
+            停止
+          </button>
+        </Show>
       </form>
     </div>
   );
@@ -166,7 +251,7 @@ function buildSystemPrompt(contextText: string): string {
   return `你是一个电子阅读器的 AI 助手。用户正在阅读一本书,可能会有选区或问题。
 
 【当前上下文】
-${contextText}
+${contextText || '(无)'}
 
-请用简洁、有用的方式回答。如果用户没指定语言,默认用中文。`;
+请用简洁、有用的方式回答。如果用户没指定语言,默认用中文。可以用 markdown 格式。`;
 }

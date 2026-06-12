@@ -823,3 +823,69 @@ a {
   margin-bottom: var(--space-3);
   padding: var(--space-2) 0;
 }
+
+/* 翻译面板 */
+.modal--wide {
+  max-width: 700px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.translate-original,
+.translate-result {
+  padding: var(--space-3);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.translate-original {
+  border-left: 3px solid var(--fg-tertiary);
+  margin-bottom: var(--space-3);
+}
+
+.translate-result {
+  border-left: 3px solid var(--accent);
+}
+
+.translate-original h3,
+.translate-result h3 {
+  margin: 0 0 var(--space-2) 0;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Markdown 内容 */
+.markdown {
+  line-height: 1.6;
+}
+
+.markdown p {
+  margin: 0 0 var(--space-2) 0;
+}
+
+.markdown p:last-child {
+  margin-bottom: 0;
+}
+
+.markdown code {
+  background: rgba(0, 0, 0, 0.1);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+
+.markdown pre {
+  background: rgba(0, 0, 0, 0.1);
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+}
+
+.markdown ul,
+.markdown ol {
+  margin: 0 0 var(--space-2) 0;
+  padding-left: var(--space-5);
+}

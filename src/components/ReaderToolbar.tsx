@@ -10,6 +10,7 @@ interface ReaderToolbarProps {
   progress: { cfi?: string; page?: number; percentage: number };
   onSelectionAction?: (action: 'highlight' | 'note' | 'ai' | 'translate') => void;
   onStandaloneNote?: () => void;
+  onTranslatePage?: () => void;
   hasSelection?: boolean;
 }
 
@@ -45,6 +46,14 @@ export function ReaderToolbar(props: ReaderToolbarProps) {
           title="独立笔记(无选区)"
         >
           ＋📝
+        </button>
+        <button
+          class="reader-toolbar__btn"
+          onClick={() => props.onTranslatePage?.()}
+          aria-label="整页翻译"
+          title="整页翻译"
+        >
+          🌐
         </button>
         <button
           class="reader-toolbar__btn"

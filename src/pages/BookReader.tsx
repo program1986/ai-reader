@@ -1,4 +1,4 @@
-// 阅读器页 - M2 完善
+// 阅读器页 - M4 完善
 import { Show, createSignal, onCleanup, onMount } from 'solid-js';
 import { useNavigate, useParams, useSearchParams } from '@solidjs/router';
 import { libraryStore } from '@/stores/library';
@@ -8,6 +8,7 @@ import type { ReaderController, SelectionInfo } from '@/services/reader/types';
 import { settingsStore } from '@/stores/settings';
 import { ReaderToolbar } from '@/components/ReaderToolbar';
 import { NoteInputDialog } from '@/components/NoteInputDialog';
+import { TranslatePanel } from '@/components/TranslatePanel';
 
 export default function BookReader() {
   const params = useParams();
@@ -22,6 +23,7 @@ export default function BookReader() {
   const [selection, setSelection] = createSignal<SelectionInfo | null>(null);
   const [showNoteDialog, setShowNoteDialog] = createSignal(false);
   const [noteMode, setNoteMode] = createSignal<'note' | 'standalone'>('note');
+  const [showTranslate, setShowTranslate] = createSignal(false);
 
   let containerRef: HTMLDivElement | undefined;
 
@@ -130,8 +132,19 @@ export default function BookReader() {
         `/book/${b.id}/ai?anno=${encodeURIComponent(sel.cfiRange ?? String(sel.page ?? ''))}`,
       );
     } else if (action === 'translate') {
-      alert('翻译在 M4 实现 (AI 调用)');
+      // 选区翻译:走 AI 面板(快捷)
+      const target = settingsStore.settings.translation.targetLanguage;
+      const text = `把下面这段翻译成 ${target}。只输出译文。\n\n${sel.text}`;
+      navigate(
+        `/book/${b.id}/ai?anno=${encodeURIComponent(sel.cfiRange ?? String(sel.page ?? ''))}`,
+      );
+      // 注:实际翻译由 AI 面板处理,这里只是入口
+      console.log('[BookReader] translate selection:', text);
     }
+  }
+
+  function handleTranslatePage() {
+    setShowTranslate(true);
   }
 
   function handleNoteConfirm(data: { noteText: string; color: string }) {
@@ -200,6 +213,7 @@ export default function BookReader() {
             hasSelection={!!selection()}
             onSelectionAction={handleSelectionAction}
             onStandaloneNote={handleStandaloneNote}
+            onTranslatePage={handleTranslatePage}
           />
         </Show>
         <div ref={containerRef} class="reader-container" />
@@ -208,6 +222,11 @@ export default function BookReader() {
           selectedText={selection()?.text}
           onConfirm={handleNoteConfirm}
           onCancel={() => setShowNoteDialog(false)}
+        />
+        <TranslatePanel
+          open={showTranslate()}
+          controller={controller()}
+          onClose={() => setShowTranslate(false)}
         />
       </Show>
     </div>
