@@ -1,6 +1,7 @@
 import { Show, createSignal } from 'solid-js';
 import { settingsStore } from '@/stores/settings';
 import { signInWithApple, signOutApple } from '@/services/apple/auth';
+import { isIOS, isTauri } from '@/services/platform';
 
 export default function Settings() {
   const ai = () => settingsStore.settings.ai;
@@ -39,13 +40,20 @@ export default function Settings() {
         <Show
           when={apple()}
           fallback={
-            <button
-              class="btn btn-apple"
-              onClick={handleAppleSignIn}
-              disabled={signingIn()}
+            <Show
+              when={isTauri() && isIOS()}
+              fallback={
+                <p class="text-secondary text-sm">Apple 登录仅在 iOS 客户端可用。</p>
+              }
             >
-              {signingIn() ? '登录中…' : ' 使用 Apple 登录'}
-            </button>
+              <button
+                class="btn btn-apple"
+                onClick={handleAppleSignIn}
+                disabled={signingIn()}
+              >
+                {signingIn() ? '登录中…' : ' 使用 Apple 登录'}
+              </button>
+            </Show>
           }
         >
           {(u) => (
