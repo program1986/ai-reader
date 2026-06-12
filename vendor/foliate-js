@@ -1,9 +1,1 @@
-PLACEHOLDER: foliate-js 实际位置在 ../ebook-with-ai/packages/foliate-js
-
-要链接(在 ai-reader 目录里):
-  ln -s ../../ebook-with-ai/packages/foliate-js ./vendor/foliate-js
-
-要拷贝:
-  cp -r ../ebook-with-ai/packages/foliate-js ./vendor/foliate-js
-
-详细见 vendor/README.md
+../../ebook-with-ai/packages/foliate-js

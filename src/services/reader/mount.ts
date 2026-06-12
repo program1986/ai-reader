@@ -1,6 +1,12 @@
-// 阅读器挂载服务 - 把 foliate-js / pdfjs 实例化到指定 DOM
-// M0 stub,M1 实现
+// 阅读器挂载入口 - M1 完整实现
+// 根据书的格式 dispatch 到对应渲染器
+import { readFile } from '@tauri-apps/plugin-fs';
+import { convertFileSrc } from '@tauri-apps/api/core';
 import type { Book } from '@/types';
+import type { ReaderController } from './types';
+import { createFoliateReader } from './foliate';
+import { createPdfReader } from './pdf';
+import { createTxtReader } from './txt';
 
 export interface MountOptions {
   container: HTMLElement;
@@ -8,15 +14,32 @@ export interface MountOptions {
   focusAnnotationId?: string;
 }
 
-export interface MountCleanup {
-  (): void;
-}
+export type MountCleanup = ReaderController;
 
 /**
- * 根据书的格式选择渲染器并挂载
- * 返回清理函数
+ * 读取书文件 → 选渲染器 → 挂载
  */
-export async function mountReader(_opts: MountOptions): Promise<MountCleanup> {
-  // M1 实现
-  throw new Error('M0 stub: mountReader 将在 M1 实现');
+export async function mountReader(opts: MountOptions): Promise<MountCleanup> {
+  const { container, book } = opts;
+
+  // 1. 读取书字节
+  const data = await readFile(book.filePath);
+
+  // 2. 按格式选渲染器
+  switch (book.format) {
+    case 'epub':
+    case 'mobi':
+    case 'fb2':
+    case 'cbz':
+      return await createFoliateReader(container, data, book.format);
+
+    case 'pdf':
+      return await createPdfReader(container, data);
+
+    case 'txt':
+      return await createTxtReader(container, data, book.title, createFoliateReader);
+
+    default:
+      throw new Error(`不支持的格式: ${book.format}`);
+  }
 }
