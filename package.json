@@ -1,0 +1,46 @@
+{
+  "name": "ai-reader",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "AI读书 - 跨平台电子阅读器",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "tauri:ios:init": "tauri ios init",
+    "tauri:ios:dev": "tauri ios dev",
+    "tauri:ios:build": "tauri ios build",
+    "lint": "biome check src",
+    "lint:fix": "biome check --write src",
+    "format": "biome format --write src",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@solidjs/router": "^0.15.0",
+    "@tauri-apps/api": "^2.1.1",
+    "@tauri-apps/plugin-dialog": "^2.0.1",
+    "@tauri-apps/plugin-fs": "^2.0.2",
+    "@tauri-apps/plugin-os": "^2.0.0",
+    "@tauri-apps/plugin-sql": "^2.0.1",
+    "ai": "^3.4.0",
+    "foliate-js": "file:./vendor/foliate-js",
+    "marked": "^14.1.0",
+    "pdfjs-dist": "^4.7.76",
+    "solid-js": "^1.9.3",
+    "uuid": "^11.0.0",
+    "zip.js": "^2.7.51"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@tauri-apps/cli": "^2.1.0",
+    "@types/node": "^22.9.0",
+    "@types/uuid": "^10.0.0",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10",
+    "vite-plugin-solid": "^2.10.2"
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "AI读书 默认权限",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:window:default",
+    "core:webview:default",
+    "core:app:default",
+    "core:path:default",
+    "core:event:default",
+    "core:resources:default",
+    "core:menu:default",
+    "core:tray:default",
+
+    "dialog:default",
+    "dialog:allow-open",
+    "dialog:allow-save",
+    "dialog:allow-message",
+    "dialog:allow-ask",
+    "dialog:allow-confirm",
+
+    "fs:default",
+    "fs:allow-read-text-file",
+    "fs:allow-read-file",
+    "fs:allow-write-file",
+    "fs:allow-exists",
+    "fs:allow-mkdir",
+    "fs:allow-remove",
+
+    "os:default",
+    "os:allow-platform",
+    "os:allow-version",
+
+    "sql:default",
+    "sql:allow-load",
+    "sql:allow-execute",
+    "sql:allow-select",
+    "sql:allow-close",
+
+    "apple-signin:default"
+  ]
+}

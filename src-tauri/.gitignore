@@ -1,0 +1,5 @@
+# Tauri 自动生成,通常不在仓库中
+# 但保留本目录以便 Xcode 工程生成
+target/
+gen/
+WixTools/

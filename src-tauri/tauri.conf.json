@@ -1,0 +1,73 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "AI读书",
+  "version": "0.1.0",
+  "identifier": "com.yuanzhongheng.ebook",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "pnpm dev",
+    "beforeBuildCommand": "pnpm build"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "macOSPrivateApi": false,
+    "windows": [
+      {
+        "label": "main",
+        "title": "AI读书",
+        "width": 390,
+        "height": 844,
+        "minWidth": 320,
+        "minHeight": 568,
+        "resizable": true,
+        "fullscreen": false,
+        "visible": true,
+        "decorations": true,
+        "transparent": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self' ipc: http://ipc.localhost; img-src 'self' asset: http://asset.localhost data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self' ipc: http://ipc.localhost https: http:; font-src 'self' data:; worker-src 'self' blob:; child-src 'self' blob:",
+      "assetProtocol": {
+        "enable": true,
+        "scope": [
+          "**"
+        ]
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "publisher": "yuanzhongheng",
+    "category": "Education",
+    "shortDescription": "AI读书 - 智能电子阅读器",
+    "longDescription": "支持 EPUB / MOBI / PDF / FB2 / CBZ / TXT 六种格式,集成划线、笔记、AI 问答、整页翻译、笔记本管理。",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "iOS": {
+      "minimumSystemVersion": "15.0",
+      "developmentTeam": null,
+      "signingIdentity": null
+    },
+    "android": {
+      "minSdkVersion": 26
+    }
+  },
+  "plugins": {
+    "sql": {
+      "preload": []
+    },
+    "fs": {
+      "scope": [
+        "**"
+      ]
+    }
+  }
+}
