@@ -816,3 +816,10 @@ a {
 .color-chip--active {
   border-color: var(--fg-primary);
 }
+
+.stats-row {
+  display: flex;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+  padding: var(--space-2) 0;
+}

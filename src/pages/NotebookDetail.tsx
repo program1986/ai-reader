@@ -1,4 +1,4 @@
-import { For, Show, createMemo } from 'solid-js';
+import { For, Show, createMemo, createSignal } from 'solid-js';
 import { useNavigate, useParams } from '@solidjs/router';
 import { notebookStore } from '@/stores/notebook';
 import { annotationStore } from '@/stores/annotation';
@@ -10,13 +10,29 @@ export default function NotebookDetail() {
   const navigate = useNavigate();
 
   const notebook = createMemo(() => notebookStore.getById(params.id));
-  const annotations = createMemo(() => {
+  const [filterBook, setFilterBook] = createSignal<string | 'all'>('all');
+
+  const allAnnotations = createMemo(() => {
     const nb = notebook();
     if (!nb) return [];
     return notebookStore
       .getAnnotationIds(nb.id)
       .map((aid) => annotationStore.getById(aid))
       .filter((a): a is NonNullable<typeof a> => !!a);
+  });
+
+  const filteredAnnotations = createMemo(() => {
+    const fb = filterBook();
+    return fb === 'all'
+      ? allAnnotations()
+      : allAnnotations().filter((a) => a.bookId === fb);
+  });
+
+  const involvedBooks = createMemo(() => {
+    const bookIds = new Set(allAnnotations().map((a) => a.bookId));
+    return Array.from(bookIds)
+      .map((id) => libraryStore.getById(id))
+      .filter((b): b is NonNullable<typeof b> => !!b);
   });
 
   return (
@@ -30,8 +46,40 @@ export default function NotebookDetail() {
               <button class="btn btn-ghost" onClick={() => navigate(`/notebook/${nb().id}/edit`)}>编辑</button>
             </header>
 
+            <Show when={nb().description}>
+              {(d) => <p class="text-secondary text-sm" style={{ 'margin-bottom': 'var(--space-3)' }}>{d()}</p>}
+            </Show>
+
+            <div class="stats-row">
+              <span class="text-secondary text-sm">共 {allAnnotations().length} 条标注</span>
+              <span class="text-tertiary text-sm">来自 {involvedBooks().length} 本书</span>
+            </div>
+
+            <Show when={involvedBooks().length > 1}>
+              <div class="filter-bar">
+                <button
+                  class="filter-chip"
+                  classList={{ 'filter-chip--active': filterBook() === 'all' }}
+                  onClick={() => setFilterBook('all')}
+                >
+                  全部
+                </button>
+                <For each={involvedBooks()}>
+                  {(b) => (
+                    <button
+                      class="filter-chip"
+                      classList={{ 'filter-chip--active': filterBook() === b.id }}
+                      onClick={() => setFilterBook(b.id)}
+                    >
+                      {b.title}
+                    </button>
+                  )}
+                </For>
+              </div>
+            </Show>
+
             <Show
-              when={annotations().length > 0}
+              when={filteredAnnotations().length > 0}
               fallback={
                 <div class="empty">
                   <p>笔记本是空的</p>
@@ -40,7 +88,7 @@ export default function NotebookDetail() {
               }
             >
               <ul class="annotation-list">
-                <For each={annotations()}>
+                <For each={filteredAnnotations()}>
                   {(ann) => {
                     const book = libraryStore.getById(ann.bookId);
                     return (
@@ -54,7 +102,7 @@ export default function NotebookDetail() {
                         />
                         <div class="annotation-item__body">
                           <Show when={ann.selectedText}>
-                            {(text) => <blockquote class="annotation-item__quote">「{text()}」</blockquote>}
+                            {(t) => <blockquote class="annotation-item__quote">「{t()}」</blockquote>}
                           </Show>
                           <Show when={ann.noteText}>
                             {(note) => <p class="annotation-item__note">{note()}</p>}

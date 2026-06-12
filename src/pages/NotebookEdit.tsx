@@ -10,23 +10,41 @@ export default function NotebookEdit() {
   const navigate = useNavigate();
 
   const notebook = createMemo(() => notebookStore.getById(params.id));
-  const allAnnotations = createMemo(() => annotationStore.annotations);
   const [name, setName] = createSignal('');
+  const [description, setDescription] = createSignal('');
   const [initialized, setInitialized] = createSignal(false);
   const [mergeInto, setMergeInto] = createSignal<string | null>(null);
+  const [filterBook, setFilterBook] = createSignal<string | 'all'>('all');
+  const [search, setSearch] = createSignal('');
 
-  // 初始化 name (只一次)
   if (notebook() && !initialized()) {
     setName(notebook()!.name);
+    setDescription(notebook()!.description ?? '');
     setInitialized(true);
   }
+
+  const visibleAnnotations = createMemo(() => {
+    let list = annotationStore.annotations;
+    const fb = filterBook();
+    if (fb !== 'all') list = list.filter((a) => a.bookId === fb);
+    const q = search().toLowerCase().trim();
+    if (q) {
+      list = list.filter(
+        (a) =>
+          (a.selectedText ?? '').toLowerCase().includes(q) ||
+          (a.noteText ?? '').toLowerCase().includes(q),
+      );
+    }
+    return list;
+  });
 
   function handleRename() {
     const nb = notebook();
     if (!nb) return;
     const v = name().trim();
-    if (!v || v === nb.name) return;
-    notebookStore.rename(nb.id, v);
+    if (v && v !== nb.name) notebookStore.rename(nb.id, v);
+    const d = description().trim();
+    notebookStore.updateDescription(nb.id, d);
   }
 
   function handleDelete() {
@@ -41,6 +59,7 @@ export default function NotebookEdit() {
     const nb = notebook();
     const target = mergeInto();
     if (!nb || !target) return;
+    if (!confirm(`合并后,「${nb.name}」的所有标注会转入目标笔记本,「${nb.name}」会被删除。继续?`)) return;
     notebookStore.merge(nb.id, target);
     navigate('/notebooks');
   }
@@ -61,6 +80,28 @@ export default function NotebookEdit() {
     }
   }
 
+  function addAll() {
+    const nb = notebook();
+    if (!nb) return;
+    if (!confirm(`将本视图所有未加入的标注全部加入「${nb.name}」?`)) return;
+    for (const a of visibleAnnotations()) {
+      if (!isLinked(a.id)) {
+        notebookStore.addAnnotation(nb.id, a.id);
+      }
+    }
+  }
+
+  function removeAll() {
+    const nb = notebook();
+    if (!nb) return;
+    if (!confirm(`从「${nb.name}」移除本视图所有已包含的标注?笔记本体保留。`)) return;
+    for (const a of visibleAnnotations()) {
+      if (isLinked(a.id)) {
+        notebookStore.removeAnnotation(nb.id, a.id);
+      }
+    }
+  }
+
   return (
     <div class="page page-notebook-edit">
       <Show when={notebook()} fallback={<div class="empty">笔记本不存在</div>}>
@@ -73,22 +114,55 @@ export default function NotebookEdit() {
 
             <section class="form-section">
               <label class="form-label">名称</label>
-              <div class="row">
-                <input
-                  class="input"
-                  type="text"
-                  value={name()}
-                  onInput={(e) => setName(e.currentTarget.value)}
-                  onBlur={handleRename}
-                />
-              </div>
+              <input
+                class="input"
+                type="text"
+                value={name()}
+                onInput={(e) => setName(e.currentTarget.value)}
+                onBlur={handleRename}
+              />
+              <label class="form-label">描述</label>
+              <textarea
+                class="input"
+                rows="2"
+                value={description()}
+                onInput={(e) => setDescription(e.currentTarget.value)}
+                onBlur={handleRename}
+                placeholder="可选"
+              />
             </section>
 
             <section class="form-section">
               <h2>包含的标注</h2>
-              <p class="text-secondary text-sm">勾选要加入笔记本的标注。已加入 {notebookStore.getAnnotationIds(nb().id).length} 条</p>
+              <p class="text-secondary text-sm">
+                已加入 {notebookStore.getAnnotationIds(nb().id).length} / {annotationStore.annotations.length} 条
+              </p>
+              <div class="filter-bar">
+                <input
+                  class="input"
+                  type="text"
+                  placeholder="搜索标注…"
+                  value={search()}
+                  onInput={(e) => setSearch(e.currentTarget.value)}
+                />
+                <select
+                  class="input"
+                  value={filterBook()}
+                  onChange={(e) => setFilterBook(e.currentTarget.value)}
+                  style={{ 'flex-shrink': '0' }}
+                >
+                  <option value="all">全部书</option>
+                  <For each={libraryStore.books}>
+                    {(b) => <option value={b.id}>{b.title}</option>}
+                  </For>
+                </select>
+              </div>
+              <div class="row">
+                <button class="btn btn-sm" onClick={addAll}>批量加入</button>
+                <button class="btn btn-sm" onClick={removeAll}>批量移除</button>
+              </div>
               <ul class="annotation-pick-list">
-                <For each={allAnnotations()}>
+                <For each={visibleAnnotations()}>
                   {(ann) => {
                     const book = libraryStore.getById(ann.bookId);
                     return (
@@ -105,6 +179,9 @@ export default function NotebookEdit() {
                         <div class="annotation-pick-item__body">
                           <Show when={ann.selectedText}>
                             {(t) => <p class="text-sm">「{t().slice(0, 80)}{t().length > 80 ? '…' : ''}」</p>}
+                          </Show>
+                          <Show when={ann.noteText && !ann.selectedText}>
+                            {(n) => <p class="text-sm">{n().slice(0, 80)}{n().length > 80 ? '…' : ''}</p>}
                           </Show>
                           <p class="text-tertiary text-xs">{book?.title ?? '未知'}</p>
                         </div>
@@ -128,13 +205,7 @@ export default function NotebookEdit() {
                     {(other) => <option value={other.id}>{other.name}</option>}
                   </For>
                 </select>
-                <button
-                  class="btn"
-                  disabled={!mergeInto()}
-                  onClick={handleMerge}
-                >
-                  合并
-                </button>
+                <button class="btn" disabled={!mergeInto()} onClick={handleMerge}>合并</button>
               </div>
               <p class="text-tertiary text-xs">合并后,本笔记本的标注全部转入目标笔记本,本笔记本删除。</p>
             </section>
