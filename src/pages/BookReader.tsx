@@ -1,5 +1,4 @@
-// 阅读器页 - M1 完整实现
-// 挂载 reader、绑定选区、保存进度、跳转到 annotation
+// 阅读器页 - M2 完善
 import { Show, createSignal, onCleanup, onMount } from 'solid-js';
 import { useNavigate, useParams, useSearchParams } from '@solidjs/router';
 import { libraryStore } from '@/stores/library';
@@ -8,6 +7,7 @@ import { mountReader } from '@/services/reader/mount';
 import type { ReaderController, SelectionInfo } from '@/services/reader/types';
 import { settingsStore } from '@/stores/settings';
 import { ReaderToolbar } from '@/components/ReaderToolbar';
+import { NoteInputDialog } from '@/components/NoteInputDialog';
 
 export default function BookReader() {
   const params = useParams();
@@ -20,6 +20,8 @@ export default function BookReader() {
     percentage: 0,
   });
   const [selection, setSelection] = createSignal<SelectionInfo | null>(null);
+  const [showNoteDialog, setShowNoteDialog] = createSignal(false);
+  const [noteMode, setNoteMode] = createSignal<'note' | 'standalone'>('note');
 
   let containerRef: HTMLDivElement | undefined;
 
@@ -35,16 +37,32 @@ export default function BookReader() {
       const ctrl = await mountReader({
         container: containerRef,
         book: b,
-        focusAnnotationId: typeof search.anno === 'string' ? search.anno : undefined,
       });
       setController(ctrl);
 
-      // 应用阅读偏好
+      // 阅读偏好应用
       const pref = settingsStore.settings.preferences;
       ctrl.setFontSize(pref.fontSize);
       ctrl.setFontFamily(pref.fontFamily);
       ctrl.setTheme(pref.theme);
       ctrl.setLineHeight(pref.lineHeight);
+
+      // 重画所有 annotation
+      const annos = annotationStore.getByBook(b.id);
+      if (b.format === 'pdf') {
+        const pdfCtrl = ctrl as any;
+        for (const a of annos) {
+          if (a.locator?.page && a.locator.rects) {
+            pdfCtrl.addHighlightByLocator(a.locator.page, a.locator.rects, a.color);
+          }
+        }
+      } else {
+        for (const a of annos) {
+          if (a.locator?.cfiRange) {
+            ctrl.addHighlight(a.locator.cfiRange, a.color, a.selectedText ?? '');
+          }
+        }
+      }
 
       // 进度持久化
       const offProgress = ctrl.onProgress((p) => {
@@ -57,8 +75,14 @@ export default function BookReader() {
         setSelection(s);
       });
 
-      // 恢复进度
-      if (b.progress?.cfi) {
+      // 跳转:进度恢复优先,?anno= 其次
+      const targetAnno =
+        typeof search.anno === 'string' ? annotationStore.getById(search.anno) : undefined;
+      if (targetAnno) {
+        const loc = targetAnno.locator;
+        if (loc?.cfiRange) await ctrl.focusAnnotation(loc.cfiRange);
+        else if (loc?.page) await ctrl.focusAnnotation(loc.page);
+      } else if (b.progress?.cfi) {
         await ctrl.goTo(b.progress.cfi);
       } else if (b.progress?.page) {
         await ctrl.goTo(b.progress.page);
@@ -81,7 +105,6 @@ export default function BookReader() {
     const b = book();
     if (!b) return;
 
-    // M2:划线/笔记实际保存
     if (action === 'highlight') {
       const color = 'yellow';
       const ann = annotationStore.add({
@@ -97,30 +120,65 @@ export default function BookReader() {
         selectedText: sel.text,
         color,
       });
-      controller()?.addHighlight(sel.cfiRange ?? String(sel.page), color, sel.text);
+      controller()?.addHighlight(sel.cfiRange ?? String(sel.page ?? ''), color, sel.text);
       console.log('[BookReader] highlight saved', ann.id);
     } else if (action === 'note') {
-      const noteText = prompt('输入笔记内容:');
-      if (noteText == null) return;
-      const ann = annotationStore.add({
+      setNoteMode('note');
+      setShowNoteDialog(true);
+    } else if (action === 'ai') {
+      navigate(
+        `/book/${b.id}/ai?anno=${encodeURIComponent(sel.cfiRange ?? String(sel.page ?? ''))}`,
+      );
+    } else if (action === 'translate') {
+      alert('翻译在 M4 实现 (AI 调用)');
+    }
+  }
+
+  function handleNoteConfirm(data: { noteText: string; color: string }) {
+    const sel = selection();
+    const b = book();
+    if (!b) return;
+
+    if (noteMode() === 'note' && sel) {
+      annotationStore.add({
+        bookId: b.id,
+        type: 'highlight_note',
+        locator: {
+          cfiRange: sel.cfiRange,
+          page: sel.page,
+          rects: sel.rects,
+          prefix: sel.prefix,
+          suffix: sel.suffix,
+        },
+        selectedText: sel.text,
+        noteText: data.noteText,
+        color: data.color,
+      });
+      controller()?.addHighlight(sel.cfiRange ?? String(sel.page ?? ''), data.color, sel.text);
+    } else if (noteMode() === 'standalone') {
+      // 独立笔记(无选区) - 当前位置不固定,只记书 + 文本
+      annotationStore.add({
         bookId: b.id,
         type: 'note',
-        noteText,
-        locator: sel.cfiRange
-          ? { cfiRange: sel.cfiRange, prefix: sel.prefix, suffix: sel.suffix }
-          : sel.page
-            ? { page: sel.page, rects: sel.rects, prefix: sel.prefix, suffix: sel.suffix }
-            : undefined,
-        color: 'yellow',
+        noteText: data.noteText,
+        locator: sel
+          ? {
+              cfiRange: sel.cfiRange,
+              page: sel.page,
+              rects: sel.rects,
+              prefix: sel.prefix,
+              suffix: sel.suffix,
+            }
+          : undefined,
+        color: data.color,
       });
-      console.log('[BookReader] note saved', ann.id);
-    } else if (action === 'ai') {
-      // M4:跳 AI 面板
-      navigate(`/book/${b.id}/ai?anno=${encodeURIComponent(sel.cfiRange ?? String(sel.page ?? ''))}`);
-    } else if (action === 'translate') {
-      // M4:整段翻译走 AI
-      alert('翻译功能在 M4 实现 (AI 调用)');
     }
+    setShowNoteDialog(false);
+  }
+
+  function handleStandaloneNote() {
+    setNoteMode('standalone');
+    setShowNoteDialog(true);
   }
 
   return (
@@ -141,9 +199,16 @@ export default function BookReader() {
             progress={progress()}
             hasSelection={!!selection()}
             onSelectionAction={handleSelectionAction}
+            onStandaloneNote={handleStandaloneNote}
           />
         </Show>
         <div ref={containerRef} class="reader-container" />
+        <NoteInputDialog
+          open={showNoteDialog()}
+          selectedText={selection()?.text}
+          onConfirm={handleNoteConfirm}
+          onCancel={() => setShowNoteDialog(false)}
+        />
       </Show>
     </div>
   );

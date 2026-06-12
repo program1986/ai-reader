@@ -9,6 +9,7 @@ interface ReaderToolbarProps {
   controller: ReaderController | null;
   progress: { cfi?: string; page?: number; percentage: number };
   onSelectionAction?: (action: 'highlight' | 'note' | 'ai' | 'translate') => void;
+  onStandaloneNote?: () => void;
   hasSelection?: boolean;
 }
 
@@ -36,6 +37,14 @@ export function ReaderToolbar(props: ReaderToolbarProps) {
           aria-label="查看笔记"
         >
           ☰
+        </button>
+        <button
+          class="reader-toolbar__btn"
+          onClick={() => props.onStandaloneNote?.()}
+          aria-label="记笔记"
+          title="独立笔记(无选区)"
+        >
+          ＋📝
         </button>
         <button
           class="reader-toolbar__btn"
