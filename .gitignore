@@ -49,3 +49,6 @@ data/cache
 .env
 .env.local
 .env.*.local
+
+# Tauri placeholder icons (for iOS build only)
+src-tauri/icons/

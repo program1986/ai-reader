@@ -37,8 +37,6 @@
     "sql:allow-load",
     "sql:allow-execute",
     "sql:allow-select",
-    "sql:allow-close",
-
-    "apple-signin:default"
+    "sql:allow-close"
   ]
 }

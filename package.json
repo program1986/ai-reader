@@ -35,6 +35,9 @@
     "uuid": "^11.0.0",
     "@zip.js/zip.js": "^2.7.51"
   },
+  "pnpm": {
+    "onlyBuiltDependencies": ["@biomejs/biome", "esbuild"]
+  },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
     "@tauri-apps/cli": "^2.1.0",
