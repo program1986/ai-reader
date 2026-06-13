@@ -8,7 +8,7 @@ const host = process.env.TAURI_DEV_HOST;
 // - 1420 = default Tauri dev port
 // - HMR over LAN when TAURI_DEV_HOST is set
 // - clearScreen disabled to keep Tauri errors visible
-export default defineConfig(async () => ({
+export default defineConfig({
   plugins: [solid()],
 
   resolve: {
@@ -32,7 +32,7 @@ export default defineConfig(async () => ({
 
   envPrefix: ['VITE_', 'TAURI_ENV_*'],
   build: {
-    target: ['es2021', 'ios12'],
+    target: ['es2022', 'ios15'],
     minify: !process.env.TAURI_ENV_DEBUG ? 'esbuild' : false,
     sourcemap: !!process.env.TAURI_ENV_DEBUG,
   },
@@ -41,4 +41,4 @@ export default defineConfig(async () => ({
     // foliate-js 内部用了 process.env,需要预构建时静态替换
     include: ['foliate-js/view', 'foliate-js/annotation', 'foliate-js/footnote'],
   },
-}));
+});

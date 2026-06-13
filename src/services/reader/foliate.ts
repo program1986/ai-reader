@@ -26,11 +26,16 @@ const COLOR_MAP: Record<string, string> = {
 
 export async function createFoliateReader(
   container: HTMLElement,
-  bookData: ArrayBuffer,
+  bookData: ArrayBuffer | Uint8Array,
   format: 'epub' | 'mobi' | 'fb2' | 'cbz',
 ): Promise<ReaderController> {
   const module = await loadFoliateModule(format);
-  const book: FoliateBook = await module.makeBook(new Blob([bookData]));
+  // Uint8Array<ArrayBufferLike> 不是合法 BlobPart(可能含 SharedArrayBuffer)
+  // 转成确定 ArrayBuffer 的 Uint8Array
+  const u8 = bookData instanceof Uint8Array
+    ? new Uint8Array(bookData.buffer.slice(bookData.byteOffset, bookData.byteOffset + bookData.byteLength))
+    : new Uint8Array(bookData);
+  const book: FoliateBook = await module.makeBook(new Blob([u8 as BlobPart]));
   const rect = container.getBoundingClientRect();
   const rendition: FoliateRendition = book.renderTo(container, {
     width: rect.width,

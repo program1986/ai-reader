@@ -96,19 +96,20 @@ async function extractMetadata(filePath: string, format: BookFormat, fileName: s
  */
 async function extractFromEbook(data: Uint8Array): Promise<{ title: string; author: string } | null> {
   try {
-    // 用 zip.js 解析
-    const { ZipReader, TextWriter, BlobReader, Uint8ArrayReader } = await import('@zip.js/zip.js');
+    // 用 zip.js v2.8 解析
+    const { ZipReader, BlobReader, TextWriter, Uint8ArrayReader } = await import('@zip.js/zip.js');
     const blob = new Blob([data as BlobPart]);
     const reader = new ZipReader(new BlobReader(blob));
     const entries = await reader.getEntries();
 
     // 找 container.xml → rootfile 路径
     const container = entries.find((e) => e.filename === 'META-INF/container.xml');
-    if (!container) {
+    if (!container || container.directory) {
       await reader.close();
       return null;
     }
-    const containerText = await container.getData(new TextWriter());
+    // getData 在 v2.8 中传入 Writer,返回 writer 收集到的内容
+    const containerText = await (container as any).getData(new TextWriter()) as string;
     const rootfileMatch = containerText.match(/full-path="([^"]+)"/);
     if (!rootfileMatch) {
       await reader.close();
@@ -116,11 +117,11 @@ async function extractFromEbook(data: Uint8Array): Promise<{ title: string; auth
     }
     const opfPath = rootfileMatch[1];
     const opf = entries.find((e) => e.filename === opfPath);
-    if (!opf) {
+    if (!opf || opf.directory) {
       await reader.close();
       return null;
     }
-    const opfText = await opf.getData(new TextWriter());
+    const opfText = await (opf as any).getData(new TextWriter()) as string;
 
     const titleMatch = opfText.match(/<dc:title[^>]*>([^<]+)<\/dc:title>/i);
     const authorMatch = opfText.match(/<dc:creator[^>]*>([^<]+)<\/dc:creator>/i);

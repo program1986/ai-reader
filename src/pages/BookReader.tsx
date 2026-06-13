@@ -9,12 +9,14 @@ import { settingsStore } from '@/stores/settings';
 import { ReaderToolbar } from '@/components/ReaderToolbar';
 import { NoteInputDialog } from '@/components/NoteInputDialog';
 import { TranslatePanel } from '@/components/TranslatePanel';
+import type { AnnotationColor } from '@/types';
 
 export default function BookReader() {
   const params = useParams();
   const [search] = useSearchParams();
   const navigate = useNavigate();
-  const book = () => libraryStore.getById(params.id);
+  // 路由配置保证 :id 必存在
+  const book = () => libraryStore.getById(params.id ?? '');
   const [error, setError] = createSignal<string | null>(null);
   const [controller, setController] = createSignal<ReaderController | null>(null);
   const [progress, setProgress] = createSignal<{ cfi?: string; page?: number; percentage: number }>({
@@ -147,7 +149,7 @@ export default function BookReader() {
     setShowTranslate(true);
   }
 
-  function handleNoteConfirm(data: { noteText: string; color: string }) {
+  function handleNoteConfirm(data: { noteText: string; color: AnnotationColor }) {
     const sel = selection();
     const b = book();
     if (!b) return;
@@ -207,7 +209,7 @@ export default function BookReader() {
       >
         <Show when={book()}>
           <ReaderToolbar
-            bookId={params.id}
+            bookId={params.id ?? ''}
             controller={controller()}
             progress={progress()}
             hasSelection={!!selection()}

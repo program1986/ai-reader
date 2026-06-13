@@ -16,7 +16,7 @@ export default function AIPanel() {
   const [draft, setDraft] = createSignal('');
   const [abortCtrl, setAbortCtrl] = createSignal<AbortController | null>(null);
 
-  const book = createMemo(() => libraryStore.getById(params.id));
+  const book = createMemo(() => libraryStore.getById(params.id ?? ''));
   const annotationId = createMemo(() =>
     typeof search.anno === 'string' ? search.anno : undefined,
   );
@@ -34,7 +34,7 @@ export default function AIPanel() {
   const conversation = createMemo(() => {
     const ann = annotation();
     if (!ann) return undefined;
-    return aiStore.getByBook(params.id).find((c) => c.contextAnnotationId === ann.id);
+    return aiStore.getByBook(params.id ?? '').find((c) => c.contextAnnotationId === ann.id);
   });
 
   function getOrCreateConv(systemPrompt: string) {

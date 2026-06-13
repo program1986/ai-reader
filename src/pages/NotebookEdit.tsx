@@ -9,7 +9,7 @@ export default function NotebookEdit() {
   const params = useParams();
   const navigate = useNavigate();
 
-  const notebook = createMemo(() => notebookStore.getById(params.id));
+  const notebook = createMemo(() => notebookStore.getById(params.id ?? ''));
   const [name, setName] = createSignal('');
   const [description, setDescription] = createSignal('');
   const [initialized, setInitialized] = createSignal(false);
@@ -180,7 +180,7 @@ export default function NotebookEdit() {
                           <Show when={ann.selectedText}>
                             {(t) => <p class="text-sm">「{t().slice(0, 80)}{t().length > 80 ? '…' : ''}」</p>}
                           </Show>
-                          <Show when={ann.noteText && !ann.selectedText}>
+                          <Show when={ann.noteText && !ann.selectedText ? ann.noteText : undefined}>
                             {(n) => <p class="text-sm">{n().slice(0, 80)}{n().length > 80 ? '…' : ''}</p>}
                           </Show>
                           <p class="text-tertiary text-xs">{book?.title ?? '未知'}</p>

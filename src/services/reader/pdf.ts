@@ -21,7 +21,7 @@ const COLOR_MAP: Record<string, string> = {
 
 export async function createPdfReader(
   container: HTMLElement,
-  bookData: ArrayBuffer,
+  bookData: ArrayBuffer | Uint8Array,
 ): Promise<ReaderController> {
   container.innerHTML = '';
   const wrapper = document.createElement('div');
@@ -159,7 +159,7 @@ export async function createPdfReader(
     return div;
   }
 
-  return {
+  const controller: ReaderController = {
     next() {
       if (currentPage < numPages) {
         const next = pageWraps[currentPage];
@@ -256,7 +256,7 @@ export async function createPdfReader(
     repaintAll(annotations: Array<{ page?: number; rects?: any[]; color: string }>) {
       for (const a of annotations) {
         if (a.page && a.rects && a.rects.length > 0) {
-          this.addHighlightByLocator(a.page, a.rects, a.color);
+          this.addHighlightByLocator?.(a.page, a.rects, a.color);
         }
       }
     },
@@ -264,6 +264,7 @@ export async function createPdfReader(
       wrapper.remove();
     },
   };
+  return controller;
 }
 
 // 导出辅助函数,供 CFI 漂移修复用

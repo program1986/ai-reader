@@ -43,8 +43,27 @@ export interface ReaderController {
   addHighlight(cfiRange: string, color: AnnotationColor, text: string): void;
   /** 移除高亮 */
   removeHighlight(cfiRange: string): void;
+  /**
+   * PDF 专属:按 page + rects 直接画高亮
+   * foliate-js 不需要(EPUB 走 addHighlight)
+   */
+  addHighlightByLocator?(
+    page: number,
+    rects: Array<{ x: number; y: number; width: number; height: number }>,
+    color: string,
+  ): void;
+  /** PDF 专属:按 locator 移除高亮 */
+  removeHighlightByLocator?(
+    page: number,
+    rects: Array<{ x: number; y: number; width: number; height: number }>,
+  ): void;
+  /**
+   * PDF 专属:重画所有 annotation
+   * 由 reader 在 mount 完时调用,把已存的 annotation 重画出来
+   */
+  repaintAll?(annotations: Array<{ page?: number; rects?: Array<{ x: number; y: number; width: number; height: number }>; color: string }>): void;
   /** 跳转到 annotation 位置 */
-  focusAnnotation(cfiRange: string | number, color: AnnotationColor, text: string): Promise<void>;
+  focusAnnotation(cfiRange: string | number): Promise<void>;
   /** 销毁 */
   destroy(): void;
 }

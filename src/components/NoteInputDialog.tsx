@@ -3,28 +3,29 @@
 //   - 划线 + 笔记 一起保存
 //   - 独立笔记(无选区)输入
 import { Show, createSignal } from 'solid-js';
+import type { AnnotationColor } from '@/types';
 
 interface NoteInputDialogProps {
   open: boolean;
   /** 选中的原文(可能为空,独立笔记场景) */
   selectedText?: string;
   /** 默认颜色 */
-  defaultColor?: string;
-  onConfirm: (data: { noteText: string; color: string }) => void;
+  defaultColor?: AnnotationColor;
+  onConfirm: (data: { noteText: string; color: AnnotationColor }) => void;
   onCancel: () => void;
 }
 
-const COLORS = [
+const COLORS: Array<{ key: AnnotationColor; label: string; hex: string }> = [
   { key: 'yellow', label: '黄', hex: '#ffeb3b' },
   { key: 'green', label: '绿', hex: '#4caf50' },
   { key: 'blue', label: '蓝', hex: '#2196f3' },
   { key: 'pink', label: '粉', hex: '#e91e63' },
   { key: 'purple', label: '紫', hex: '#9c27b0' },
-] as const;
+];
 
 export function NoteInputDialog(props: NoteInputDialogProps) {
   const [text, setText] = createSignal('');
-  const [color, setColor] = createSignal(props.defaultColor ?? 'yellow');
+  const [color, setColor] = createSignal<AnnotationColor>(props.defaultColor ?? 'yellow');
 
   function handleSubmit(e: Event) {
     e.preventDefault();

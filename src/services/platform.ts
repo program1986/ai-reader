@@ -1,5 +1,5 @@
 // 平台检测
-import { isPlatform } from '@tauri-apps/plugin-os';
+import { platform as getPlatform } from '@tauri-apps/plugin-os';
 
 /** 是否在 Tauri 容器中 */
 export function isTauri(): boolean {
@@ -10,7 +10,7 @@ export function isTauri(): boolean {
 export function isIOS(): boolean {
   if (!isTauri()) return false;
   try {
-    return isPlatform('ios');
+    return getPlatform() === 'ios';
   } catch {
     return false;
   }
@@ -20,7 +20,7 @@ export function isIOS(): boolean {
 export function isAndroid(): boolean {
   if (!isTauri()) return false;
   try {
-    return isPlatform('android');
+    return getPlatform() === 'android';
   } catch {
     return false;
   }
@@ -30,7 +30,7 @@ export function isAndroid(): boolean {
 export function isMacOS(): boolean {
   if (!isTauri()) return false;
   try {
-    return isPlatform('macos');
+    return getPlatform() === 'macos';
   } catch {
     return false;
   }

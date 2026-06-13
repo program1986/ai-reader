@@ -18,7 +18,7 @@ export default function BookAnnotations() {
   const navigate = useNavigate();
   const [filter, setFilter] = createSignal<AnnotationType | 'all'>('all');
 
-  const book = createMemo(() => libraryStore.getById(params.id));
+  const book = createMemo(() => libraryStore.getById(params.id ?? ''));
   const annotations = createMemo(() => {
     const b = book();
     if (!b) return [];

@@ -9,7 +9,7 @@ export default function NotebookDetail() {
   const params = useParams();
   const navigate = useNavigate();
 
-  const notebook = createMemo(() => notebookStore.getById(params.id));
+  const notebook = createMemo(() => notebookStore.getById(params.id ?? ''));
   const [filterBook, setFilterBook] = createSignal<string | 'all'>('all');
 
   const allAnnotations = createMemo(() => {

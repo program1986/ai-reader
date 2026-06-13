@@ -127,7 +127,9 @@ export function repairCfiRange(
   locator: AnnotationLocator | undefined,
 ): string | null {
   if (!locator?.cfiRange) return null;
-  const range = findRangeByContext(doc, locator.prefix, locator.selectedText, locator.suffix);
+  // selectedText 在 Annotation 上,不在 Locator 上。这里只能基于 prefix+suffix 做粗匹配,
+  // 完整修复需要调用方把 annotation 一起传进来(M2.1)
+  const range = findRangeByContext(doc, locator.prefix, undefined, locator.suffix);
   if (!range) return null;
   // 把 index 解析出来(CFI 形如 "epubcfi(/6/4!/4/2/1:0,/6/4!/4/2/1:32)")
   const indexMatch = locator.cfiRange.match(/epubcfi\(\/(\d+)\//);

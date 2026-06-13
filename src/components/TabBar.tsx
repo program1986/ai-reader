@@ -25,7 +25,7 @@ export function TabBar() {
           classList={{ 'tab-bar__item--active': isActive(tab.path) }}
           onClick={() => navigate(tab.path)}
         >
-          <Show when={tab.icon}>{(icon) => <span class="tab-bar__icon">{icon()}</span>}</Show>
+          <span class="tab-bar__icon">{tab.icon()}</span>
           <span class="tab-bar__label">{tab.label}</span>
         </button>
       ))}

@@ -2,6 +2,9 @@
 // 在 web worker 里做转换,主线程拿到 ArrayBuffer 后调 foliate-js
 import type { ReaderController } from './types';
 
+// EPUB 规范要求 mimetype 必须是第一个 entry,且不压缩
+const COMPRESSION_STORE = 0;
+
 /**
  * 把纯文本包装成最简 EPUB(单章节、单页)
  * 简化:不严格遵循 EPUB 规范,只保证 foliate-js 能解析
@@ -13,20 +16,22 @@ export async function txtToEpubBytes(txt: string, title: string): Promise<ArrayB
     .map((p) => `<p>${escapeHtml(p).replace(/\n/g, '<br/>')}</p>`)
     .join('\n');
 
-  // 构造 EPUB zip
-  const { BlobWriter, ZipWriter, TextWriter } = await import('@zip.js/zip.js');
-  const blobWriter = new BlobWriter('application/epub+zip');
-  const zip = new ZipWriter(blobWriter);
-  await zip.add('mimetype', new TextWriter('text/plain')).addData('application/epub+zip');
-  await zip.add('META-INF/container.xml', new TextWriter()).addData(
+  // 构造 EPUB zip(zip.js v2.8 API:TextReader(filename, value) + add)
+  const { ZipWriter, BlobWriter, TextReader } = await import('@zip.js/zip.js');
+  const zip = new ZipWriter(new BlobWriter('application/epub+zip'));
+
+  await zip.add('mimetype', new TextReader('application/epub+zip'), {
+    compressionMethod: COMPRESSION_STORE,
+  });
+  await zip.add('META-INF/container.xml', new TextReader(
     `<?xml version="1.0"?>
 <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
   <rootfiles>
     <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
   </rootfiles>
 </container>`,
-  );
-  await zip.add('OEBPS/content.opf', new TextWriter()).addData(
+  ));
+  await zip.add('OEBPS/content.opf', new TextReader(
     `<?xml version="1.0" encoding="UTF-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" unique-identifier="bookid" version="3.0">
   <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
@@ -43,8 +48,8 @@ export async function txtToEpubBytes(txt: string, title: string): Promise<ArrayB
     <itemref idref="ch1"/>
   </spine>
 </package>`,
-  );
-  await zip.add('OEBPS/nav.xhtml', new TextWriter()).addData(
+  ));
+  await zip.add('OEBPS/nav.xhtml', new TextReader(
     `<?xml version="1.0" encoding="UTF-8"?>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
   <head><title>${escapeXml(title)}</title></head>
@@ -52,8 +57,8 @@ export async function txtToEpubBytes(txt: string, title: string): Promise<ArrayB
     <nav epub:type="toc"><ol><li><a href="ch1.xhtml">开始</a></li></ol></nav>
   </body>
 </html>`,
-  );
-  await zip.add('OEBPS/ch1.xhtml', new TextWriter()).addData(
+  ));
+  await zip.add('OEBPS/ch1.xhtml', new TextReader(
     `<?xml version="1.0" encoding="UTF-8"?>
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
@@ -62,7 +67,7 @@ export async function txtToEpubBytes(txt: string, title: string): Promise<ArrayB
   </head>
   <body><h1>${escapeXml(title)}</h1>${chapterHtml}</body>
 </html>`,
-  );
+  ));
   const blob = await zip.close();
   return await blob.arrayBuffer();
 }
@@ -93,9 +98,9 @@ function escapeXml(s: string): string {
  */
 export async function createTxtReader(
   container: HTMLElement,
-  bookData: ArrayBuffer,
+  bookData: ArrayBuffer | Uint8Array,
   title: string,
-  foliateFactory: (container: HTMLElement, data: ArrayBuffer, format: 'epub') => Promise<ReaderController>,
+  foliateFactory: (container: HTMLElement, data: ArrayBuffer | Uint8Array, format: 'epub') => Promise<ReaderController>,
 ): Promise<ReaderController> {
   const txt = new TextDecoder('utf-8', { fatal: false }).decode(bookData);
   const epubBytes = await txtToEpubBytes(txt, title);
