@@ -9,6 +9,7 @@ import { settingsStore } from '@/stores/settings';
 import { ReaderToolbar } from '@/components/ReaderToolbar';
 import { NoteInputDialog } from '@/components/NoteInputDialog';
 import { TranslatePanel } from '@/components/TranslatePanel';
+import { wlog } from '@/services/webview-log';
 import type { AnnotationColor } from '@/types';
 
 export default function BookReader() {
@@ -30,18 +31,26 @@ export default function BookReader() {
   let containerRef: HTMLDivElement | undefined;
 
   onMount(async () => {
+    await wlog('info', 'BookReader: onMount fired');
     const b = book();
     if (!b) {
+      await wlog('warn', 'BookReader: book not found');
       setError('书不存在');
       return;
     }
-    if (!containerRef) return;
+    await wlog('info', `BookReader: book=${b.id} title="${b.title}" format=${b.format} filePath=${b.filePath}`);
+    if (!containerRef) {
+      await wlog('error', 'BookReader: containerRef is null');
+      return;
+    }
 
     try {
+      await wlog('info', 'BookReader: calling mountReader');
       const ctrl = await mountReader({
         container: containerRef,
         book: b,
       });
+      await wlog('info', 'BookReader: mountReader returned, setting controller');
       setController(ctrl);
 
       // 阅读偏好应用
@@ -53,6 +62,7 @@ export default function BookReader() {
 
       // 重画所有 annotation
       const annos = annotationStore.getByBook(b.id);
+      await wlog('info', `BookReader: replaying ${annos.length} annotations for book ${b.id}`);
       if (b.format === 'pdf') {
         const pdfCtrl = ctrl as any;
         for (const a of annos) {
@@ -79,7 +89,7 @@ export default function BookReader() {
         setSelection(s);
       });
 
-      // 跳转:进度恢复优先,?anno= 其次
+      // 跳转:?anno= 优先,其次 进度恢复
       const targetAnno =
         typeof search.anno === 'string' ? annotationStore.getById(search.anno) : undefined;
       if (targetAnno) {

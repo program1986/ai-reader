@@ -56,8 +56,17 @@ export const libraryStore = {
     );
     persist();
   },
+  updateFilePath(id: string, filePath: string) {
+    setBooks((b) => b.id === id, (b) => ({ ...b, filePath }));
+    persist();
+  },
   rename(id: string, title: string) {
     setBooks((b) => b.id === id, (b) => ({ ...b, title }));
     persist();
   },
+  updateCover(id: string, cover: string | undefined) {
+    setBooks((b) => b.id === id, (b) => ({ ...b, cover }));
+    persist();
+  },
 };
+

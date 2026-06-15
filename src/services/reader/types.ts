@@ -64,6 +64,10 @@ export interface ReaderController {
   repaintAll?(annotations: Array<{ page?: number; rects?: Array<{ x: number; y: number; width: number; height: number }>; color: string }>): void;
   /** 跳转到 annotation 位置 */
   focusAnnotation(cfiRange: string | number): Promise<void>;
+  /** 内部用:获取 foliate-view 元素 (给自测脚本) */
+  getView?(): any;
+  /** 内部用:获取当前 session 已存的高亮列表 (给自测脚本) */
+  getStoredHighlights?(): Array<{ cfiRange: string; color: string }>;
   /** 销毁 */
   destroy(): void;
 }

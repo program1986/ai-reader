@@ -29,6 +29,21 @@
     "fs:allow-mkdir",
     "fs:allow-remove",
 
+    {
+      "identifier": "fs:scope",
+      "allow": [
+        { "path": "$APPDATA/**" },
+        { "path": "$APPLOCALDATA/**" },
+        { "path": "$APPCONFIG/**" },
+        { "path": "$APPCACHE/**" },
+        { "path": "$DOCUMENT/**" },
+        { "path": "$DOWNLOAD/**" },
+        { "path": "$DESKTOP/**" },
+        { "path": "$HOME/**" },
+        { "path": "$RESOURCE/**" }
+      ]
+    },
+
     "os:default",
     "os:allow-platform",
     "os:allow-version",

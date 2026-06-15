@@ -2,6 +2,7 @@
 import { Show, createSignal } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
 import { settingsStore } from '@/stores/settings';
+import { wlog } from '@/services/webview-log';
 import type { ReaderController } from '@/services/reader/types';
 
 interface ReaderToolbarProps {
@@ -26,7 +27,10 @@ export function ReaderToolbar(props: ReaderToolbarProps) {
       <header class="reader-toolbar">
         <button
           class="reader-toolbar__btn"
-          onClick={() => navigate('/')}
+          onClick={() => {
+            wlog('info', 'ReaderToolbar: back button clicked, navigating to /').catch(() => {});
+            navigate('/');
+          }}
           aria-label="返回书架"
         >
           ‹

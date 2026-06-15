@@ -58,6 +58,11 @@
             </dict>
         </dict>
     </dict>
+    <!-- iOS Files.app 集成:让 app 的沙箱目录出现在"我的 iPhone / AI读书"下,用户可拖入 epub 等 -->
+    <key>UIFileSharingEnabled</key>
+    <true/>
+    <key>LSSupportsOpeningDocumentsInPlace</key>
+    <true/>
     <!-- Apple Sign In 能力声明 -->
     <key>com.apple.developer.applesignin</key>
     <array>

@@ -34,6 +34,7 @@ pub fn run() {
             commands::greet,
             commands::get_app_info,
             commands::read_text_file,
+            commands::webview_log,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {

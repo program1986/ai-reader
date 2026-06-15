@@ -1,18 +1,47 @@
-import { For, Show } from 'solid-js';
+import { For, Show, onMount } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
 import { libraryStore } from '@/stores/library';
-import { importBook } from '@/services/importer';
+import { importBook, importFromDocumentsDir } from '@/services/importer';
+import { wlog } from '@/services/webview-log';
 
 export default function Library() {
   const navigate = useNavigate();
 
+  wlog('info', 'Library: component loaded').catch(() => {});
+
+  onMount(async () => {
+    await wlog('info', 'Library: onMount fired');
+    // 注意:不要在 onMount 里 auto-navigate 到 /book/:id
+    // 否则从 reader 点返回时,Library 重新挂载又会跳回 reader,看起来像"返回没反应"
+    // 真机调试只做自动导入,导入完成后让用户手动点击书进入
+    if (libraryStore.books.length === 0) {
+      try {
+        await wlog('info', 'Library: onMount: starting auto-import');
+        const book = await importFromDocumentsDir();
+        await wlog('info', `Library: onMount: importFromDocumentsDir returned ${book ? book.id : 'null'}`);
+      } catch (err) {
+        await wlog('error', 'Library: onMount: auto-import failed', err);
+      }
+    } else {
+      await wlog('info', `Library: onMount: ${libraryStore.books.length} books in library, no auto-navigate`);
+    }
+  });
+
   async function handleImport() {
     try {
+      console.log('[Library] importBook() start');
       const book = await importBook();
+      console.log('[Library] importBook() returned', book);
       if (book) navigate(`/book/${book.id}`);
     } catch (err) {
       console.error('[Library] import failed', err);
-      alert('导入失败: ' + (err as Error).message);
+      const msg =
+        err instanceof Error
+          ? err.message
+          : typeof err === 'string'
+            ? err
+            : JSON.stringify(err, Object.getOwnPropertyNames(err ?? {}));
+      alert('导入失败: ' + (msg || '(no message)'));
     }
   }
 
@@ -45,7 +74,16 @@ export default function Library() {
                 onClick={() => navigate(`/book/${book.id}`)}
               >
                 <div class="book-card__cover">
-                  <Show when={book.cover} fallback={<div class="book-card__cover-placeholder" />}>
+                  <Show
+                    when={book.cover}
+                    fallback={
+                      <div class="book-card__cover-fallback">
+                        <span class="book-card__cover-fallback-char">
+                          {(book.title || '?').charAt(0)}
+                        </span>
+                      </div>
+                    }
+                  >
                     <img src={book.cover} alt={book.title} />
                   </Show>
                 </div>

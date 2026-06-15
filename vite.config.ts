@@ -14,6 +14,10 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),
+      // foliate-js/pdf.js 用了非标准路径 '@pdfjs/pdf.min.mjs',
+      // 重定向到 pdfjs-dist 的实际文件。EPUB 走 EPUB 分支不真加载 PDF,
+      // 这个 alias 只是满足 vite 静态解析。
+      '@pdfjs/pdf.min.mjs': resolve(__dirname, 'node_modules/pdfjs-dist/build/pdf.min.mjs'),
     },
   },
 
