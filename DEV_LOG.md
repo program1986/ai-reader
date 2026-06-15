@@ -266,3 +266,48 @@ pnpm tauri ios dev
 - 所有标注 / 笔记 / 笔记本 / AI / Apple 登录的核心数据流与 UI 都已连接
 - 主要风险:foliate-js 在 iOS WKWebView 的 CFI 稳定性(行业已知难点),真机要重点验证划线保留和跳转
 - 其余风险:Tauri v2 iOS 桥 API 在小版本之间偶有变动,Swift 端 AppleSignIn 的桥接点真机编译时大概率要微调
+
+## 2026-06-15 修复与 iOS 模拟器验证 (commit `4d977f1`)
+
+本轮一次性把积压的若干问题修复,合并成 1 个 commit 推送。**已通过 iPhone 16 Pro / iOS 18.2 模拟器端到端验证**(装上、启动、封面、划线、选区 toolbar 全部正常)。
+
+### 划线不显示 (根因 + 修复)
+
+1. **`create-overlayer` 监听挂错对象**。`foliate-view` 捕获 `create-overlayer` 后**不** re-dispatch 给自己;真正发事件的源是 `view.renderer`。修复:`foliate.ts` 把 listener 直接挂在 `view.renderer` 上,并在 `view.open()` resolve 后调 `registerCreateOverlayerListener()`。
+2. **填色透明度叠乘后几乎不可见**。foliate 的 Overlayer 还会乘 `--overlayer-highlight-opacity`(默认 0.3),而 `COLOR_MAP` 之前用的是 `rgba(..., 0.4)`,叠乘后只剩 12%。修复:全部改成 `rgba(..., 1.0)`。
+
+### Cover 提取 (根因 + 修复)
+
+正则实现要求 `properties` 属性必须在 `href` **前面**才匹配,但三言二拍 OPF 里是反的:
+```xml
+<item href="Image00594.jpg" id="cover-image" media-type="image/jpeg" properties="cover-image"/>
+```
+原正则匹配失败,`cover` 一直是 `undefined`,Library 走"首字 fallback"显示一个"三"字(用户看到的是 3 个横线)。
+
+修复 `importer.ts` 的 `extractFromEbook`:
+- 改用 `DOMParser` 解析 OPF(不依赖属性顺序)
+- 3 条路径取 cover:1) `<item properties="cover-image">` 2) `<meta name="cover" content="id">` + manifest 查 `id` 3) `<guide><reference type="cover" href=...>`
+- 兜底:OPF 同目录找 `cover.{jpe?g,png,webp,gif}`
+
+**验证**:`Image00594.jpg` 165 KB JPEG 正确解出 base64 data URL,显示的是真的人民文学出版社"三言二拍插图典藏版 全六册"封面。
+
+### 选区 toolbar 排版
+
+弹出的 4 个按钮(高亮 / 笔记 / AI / 翻译)从 2 行折行改回一行:
+- `.selection-toolbar` 改 `position: fixed; left: 12px; right: 12px`(铺满可用宽度)
+- `.selection-toolbar__btn` 加 `flex: 1 1 0; white-space: nowrap; justify-content: center`
+
+### 其它清理
+
+- `Library.tsx` 移除早期调试用的 FORCE_SELFTEST、`?selftest=` 路由参数
+- `BookReader.tsx` 移除 selftest phase 1/3 + 大量 "replay anno" log
+- 替换 `vendor/foliate-js` 软链 → 指向 `ebook-1/readest/packages/foliate-js`(本机有效副本)
+- `tauri.conf.json` 移除 `fs.scope: ["**"]` 旧块(避免与 capabilities 重复)
+- `src-tauri/src/commands.rs` 增加 doc 目录路径写入
+- 新增 `src/services/webview-log.ts`:webview 端把 log 写到 `Documents/ai-reader.log`,供 iOS 沙盒日志收集
+
+### 未做的(下轮可继续)
+
+- Task #29 `removeHighlight` 接受 stored id 的接线(现在点击删除是按当前选区,持久化 annotation 删除后没有正确从 foliate overlay 抹掉)
+- 去重:同一文件重复导入会造出 2 本同样的 book(早期 auto-import 跑过 2 次,用户 Library 里有 2 本三言二拍)
+- `localStorage` 里的旧 book 记录没有 cover(`updateCover` 已留在 store,需要 UI 触发)
